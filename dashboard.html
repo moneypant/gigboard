@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GigBoard — Student Creator Dashboard</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><circle cx=%2250%22 cy=%2250%22 r=%2245%22 fill=%22%234F46E5%22/><text y=%2265%22 x=%2250%22 text-anchor=%22middle%22 font-size=%2250%22 fill=%22white%22>👩‍💻</text></svg>">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<nav class="nav" id="nav"></nav>
+
+<main>
+  <div class="wrap">
+    
+    <div class="page-head" style="margin-bottom:28px;">
+      <span class="campus-tag-nav" style="margin-left:0; margin-bottom:8px; display:inline-block;">Creator Studio</span>
+      <h1 style="font-size:2.2rem; margin-bottom:6px;">Student Creator Dashboard</h1>
+      <p>Manage your incoming client booking requests, track completed orders, and showcase your campus portfolio.</p>
+    </div>
+
+    <!-- Identity Gate / Role Guard -->
+    <div class="card" id="identityCard" style="max-width:560px; margin:0 auto 36px; text-align:center;">
+      <h3 style="font-size:1.25rem; margin-bottom:8px;">Access Your Creator Dashboard</h3>
+      <p style="margin-bottom:18px; font-size:0.9rem;">Sign in to your creator account or enter your creator name below.</p>
+
+      <div class="field" style="text-align:left;">
+        <label for="creatorNameInput">Your Creator Name</label>
+        <input type="text" id="creatorNameInput" placeholder="e.g. Aisha Sharma">
+      </div>
+
+      <button class="btn btn-primary btn-full" id="loadDashboardBtn">View Dashboard</button>
+
+      <!-- Quick Profile Switcher -->
+      <div style="margin-top:16px; padding:10px 14px; background:#F8FAFC; border-radius:8px; border:1px solid #E2E8F0; text-align:left;">
+        <div style="font-size:0.75rem; font-weight:700; color:var(--ink-soft); margin-bottom:6px; text-transform:uppercase; letter-spacing:0.5px;">Switch Creator View:</div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button type="button" onclick="loadDemoCreator('Rohan Mehta')" class="btn btn-ghost btn-sm" style="padding:4px 10px; font-size:0.82rem;">
+            Rohan Mehta (BITS Pilani)
+          </button>
+          <button type="button" onclick="loadDemoCreator('Aisha Sharma')" class="btn btn-ghost btn-sm" style="padding:4px 10px; font-size:0.82rem;">
+            Aisha Sharma (IIT Delhi)
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Live Dashboard Container -->
+    <div id="dashboardContent" style="display:none;"></div>
+
+  </div>
+</main>
+
+<div id="toastContainer" class="toast-container"></div>
+<footer id="footer"></footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase-client.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/store.js"></script>
+<script src="js/ui.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  if (!requireAuth({ allowedRoles: ["seller", "both"] })) return;
+  renderNav("dashboard.html");
+  renderFooter();
+
+  const user = getCurrentUser();
+  const presetCreator = new URLSearchParams(location.search).get("creator");
+  const lastSavedName = localStorage.getItem("gb_last_creator_name");
+
+  if (presetCreator) {
+    document.getElementById("creatorNameInput").value = presetCreator;
+    loadDashboard(presetCreator);
+  } else if (user && (user.role === "seller" || user.role === "both")) {
+    document.getElementById("creatorNameInput").value = user.fullName;
+    loadDashboard(user.fullName);
+  } else if (lastSavedName) {
+    document.getElementById("creatorNameInput").value = lastSavedName;
+    loadDashboard(lastSavedName);
+  }
+
+  document.getElementById("loadDashboardBtn").addEventListener("click", () => {
+    const name = document.getElementById("creatorNameInput").value.trim();
+    if (name) loadDashboard(name);
+  });
+
+  document.getElementById("creatorNameInput").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      const name = document.getElementById("creatorNameInput").value.trim();
+      if (name) loadDashboard(name);
+    }
+  });
+});
+
+function loadDemoCreator(name) {
+  document.getElementById("creatorNameInput").value = name;
+  loadDashboard(name);
+}
+
+function loadDemoAisha() {
+  loadDemoCreator("Aisha Sharma");
+}
+
+function loadDashboard(creatorName, options = {}) {
+  const content = document.getElementById("dashboardContent");
+  const identityCard = document.getElementById("identityCard");
+  const cleanName = creatorName.trim();
+  if (!cleanName) return;
+
+  localStorage.setItem("gb_last_creator_name", cleanName);
+
+  const gigs = getGigs().filter(g => g.creatorName.trim().toLowerCase() === cleanName.toLowerCase());
+  const stats = creatorStats(cleanName);
+  const bookings = getBookingsByCreator(cleanName).sort((a, b) => b.createdAt - a.createdAt);
+  const pending = bookings.filter(b => b.status === "Pending");
+  const accepted = bookings.filter(b => b.status === "Accepted");
+  const others = bookings.filter(b => b.status !== "Pending");
+
+  // Calculate earnings and 3% platform fee
+  const totalVolume = bookings
+    .filter(b => b.status === "Completed")
+    .reduce((sum, b) => {
+      const gig = getGigById(b.gigId);
+      const base = b.baseRate || (gig ? gig.rate : 500);
+      return sum + (b.totalAmount || (base + Math.max(1, Math.round(base * 0.03))));
+    }, 0);
+
+  const totalEarned = bookings
+    .filter(b => b.status === "Completed")
+    .reduce((sum, b) => {
+      const gig = getGigById(b.gigId);
+      return sum + (b.baseRate || (gig ? gig.rate : 500));
+    }, 0);
+
+  const platformFees = Math.round(totalEarned * 0.03);
+
+  identityCard.style.display = "none";
+  content.style.display = "block";
+
+  const user = getCurrentUser();
+  const campus = (user && user.collegeName) || (gigs.length > 0 && gigs[0].collegeCampus) || "IIT Delhi";
+
+  let conflictBannerHtml = "";
+  if (options && options.conflictAlert) {
+    const ca = options.conflictAlert;
+    conflictBannerHtml = `
+      <div class="card" style="background:#FEF2F2; border:1px solid #FCA5A5; border-radius:10px; padding:16px 20px; margin-bottom:24px;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:6px;">
+          <h4 style="color:#991B1B; margin:0; font-size:1.02rem; font-weight:700;">Booking Confirmed &amp; Calendar Conflict Resolved</h4>
+          <span style="font-size:0.75rem; background:#FEE2E2; color:#991B1B; padding:2px 8px; border-radius:4px; font-weight:600;">Calendar Protected</span>
+        </div>
+        <p style="margin:0; font-size:0.9rem; color:#7F1D1D; line-height:1.5;">
+          You accepted <strong>${escapeHtml(ca.acceptedClient)}</strong> for delivery on <strong>${fmtDate(new Date(ca.date).getTime())}</strong>. 
+          ${ca.autoDeclinedCount} conflicting pending request on the same date was automatically declined with reason: <em>"Slot already booked by another client for this date."</em>
+        </p>
+      </div>
+    `;
+  }
+
+  content.innerHTML = `
+    ${conflictBannerHtml}
+
+    <!-- Top Stats Row -->
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:18px; margin-bottom:32px;">
+      
+      <div class="card" style="border-left:4px solid var(--primary);">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+          <div>
+            <div style="font-size:0.8rem; font-weight:700; color:var(--text-muted); text-transform:uppercase;">Creator Profile</div>
+            <h3 style="font-size:1.35rem; margin-top:2px;">${escapeHtml(cleanName)}</h3>
+            <span class="campus-chip" style="margin-top:6px;">🎓 ${escapeHtml(campus)}</span>
+          </div>
+          <span class="badge ${badgeClass(stats.badge)}" style="font-size:0.8rem; padding:4px 12px;">${stats.badge}</span>
+        </div>
+      </div>
+
+      <div class="card" style="border-left:4px solid var(--emerald);">
+        <div style="font-size:0.8rem; font-weight:700; color:var(--text-muted); text-transform:uppercase;">Net Payout (UPI)</div>
+        <div style="font-size:1.6rem; font-weight:800; color:var(--text-main); margin-top:4px;">₹${totalEarned}</div>
+        <div style="font-size:0.82rem; color:var(--ink-soft); font-weight:600; margin-top:4px;">Platform Fee (3%): ₹${platformFees}</div>
+      </div>
+
+      <div class="card" style="border-left:4px solid var(--coral);">
+        <div style="font-size:0.8rem; font-weight:700; color:var(--text-muted); text-transform:uppercase;">Pending Requests</div>
+        <div style="font-size:1.6rem; font-weight:800; color:var(--text-main); margin-top:4px;">${pending.length}</div>
+        <div style="font-size:0.82rem; color:var(--text-muted); margin-top:4px;">Requires your response</div>
+      </div>
+
+      <div class="card" style="border-left:4px solid #F59E0B;">
+        <div style="font-size:0.8rem; font-weight:700; color:var(--text-muted); text-transform:uppercase;">Active Gigs</div>
+        <div style="font-size:1.6rem; font-weight:800; color:var(--text-main); margin-top:4px;">${gigs.length}</div>
+        <div style="margin-top:4px;">
+          <a href="post-gig.html" style="font-size:0.82rem; color:var(--primary); font-weight:700;">+ Post New Gig</a>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Section 1: Incoming Pending Requests -->
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+      <h2 style="font-size:1.35rem;">Incoming Requests ${pending.length ? `(${pending.length})` : ''}</h2>
+      <button onclick="switchCreator()" class="btn btn-ghost btn-sm">Change Identity</button>
+    </div>
+
+    ${pending.length === 0
+      ? `<div class="empty" style="margin-bottom:32px;">
+           <h3>No pending requests right now</h3>
+           <p>When clients book your gigs, their requests will appear here for you to accept or decline.</p>
+         </div>`
+      : `<div style="margin-bottom:36px;">${pending.map(b => renderBookingRow(b, true)).join("")}</div>`}
+
+    <!-- Section 2: Active Orders & History -->
+    <h2 style="font-size:1.35rem; margin-bottom:14px;">Active Orders & Booking History</h2>
+    ${others.length === 0
+      ? `<div class="empty" style="margin-bottom:36px;"><h3>No past bookings yet</h3></div>`
+      : `<div style="margin-bottom:36px;">${others.map(b => renderBookingRow(b, false)).join("")}</div>`}
+
+    <!-- Section 3: Your Listed Gigs -->
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+      <h2 style="font-size:1.35rem;">Your Listed Campus Gigs (${gigs.length})</h2>
+      <a href="post-gig.html" class="btn btn-primary btn-sm">+ Post a New Gig</a>
+    </div>
+
+    ${gigs.length === 0
+      ? `<div class="empty">
+           <h3>You haven't listed any gigs yet</h3>
+           <p><a href="post-gig.html" style="color:var(--primary); font-weight:700;">List your first gig</a> to start receiving requests from clients.</p>
+         </div>`
+      : `<div class="gig-grid" style="margin-bottom:36px;">
+           ${gigs.map(g => `
+             <div class="card gig-card" style="--cat-color:${(CATEGORY_COLORS[g.category]||{}).dot || '#FF5A36'}">
+               <span class="cat-tag" style="--cat-color-bg:${(CATEGORY_COLORS[g.category]||{}).bg || '#FCF1D8'}; --cat-color-text:${(CATEGORY_COLORS[g.category]||{}).text || '#8A6116'};">${g.category}</span>
+               <h3>${escapeHtml(g.title)}</h3>
+               <div class="foot">
+                 <div class="rate">${fmtRate(g)}</div>
+                 <span style="font-size:0.82rem; color:var(--ink-soft); font-weight:600;">${g.completedCount || 0} completed</span>
+               </div>
+             </div>
+           `).join("")}
+         </div>`
+    }
+  `;
+
+  // Attach action listeners
+  content.querySelectorAll("[data-accept]").forEach(btn => btn.addEventListener("click", () => {
+    const result = acceptBooking(btn.dataset.accept);
+    if (result && result.autoDeclined > 0) {
+      showToast(`⚡ ${result.autoDeclined} conflicting request(s) auto-declined to prevent double-booking!`, "info");
+      loadDashboard(cleanName, {
+        conflictAlert: {
+          acceptedClient: result.accepted.clientName,
+          date: result.accepted.date,
+          autoDeclinedCount: result.autoDeclined
+        }
+      });
+    } else {
+      showToast("Booking request accepted! Client has been notified.", "success");
+      loadDashboard(cleanName);
+    }
+  }));
+
+  content.querySelectorAll("[data-decline-toggle]").forEach(btn => btn.addEventListener("click", () => {
+    const box = content.querySelector(`.decline-box[data-for="${btn.dataset.declineToggle}"]`);
+    box.classList.toggle("open");
+  }));
+
+  content.querySelectorAll("[data-confirm-decline]").forEach(btn => btn.addEventListener("click", () => {
+    const id = btn.dataset.confirmDecline;
+    const input = content.querySelector(`.decline-box[data-for="${id}"] input`);
+    const reason = input ? input.value.trim() : "";
+    declineBooking(id, reason);
+    showToast("Booking request declined.", "info");
+    loadDashboard(cleanName);
+  }));
+
+  content.querySelectorAll("[data-complete]").forEach(btn => btn.addEventListener("click", () => {
+    completeBooking(btn.dataset.complete);
+    showToast("Order marked as Delivered & Completed! Skill badge updated.", "success");
+    loadDashboard(cleanName);
+  }));
+}
+
+function switchCreator() {
+  document.getElementById("identityCard").style.display = "block";
+  document.getElementById("dashboardContent").style.display = "none";
+}
+
+function renderBookingRow(b, isPending) {
+  let actions = "";
+  if (b.status === "Pending") {
+    actions = `
+      <div class="actions">
+        <button class="btn btn-primary btn-sm" data-accept="${b.id}">✓ Accept Request</button>
+        <button class="btn btn-ghost btn-sm" data-decline-toggle="${b.id}">✕ Decline</button>
+      </div>
+      <div class="decline-box" data-for="${b.id}">
+        <input type="text" placeholder="Optional reason (e.g. Exam week, booked on this date)">
+        <button class="btn btn-coral btn-sm" data-confirm-decline="${b.id}">Confirm Decline</button>
+      </div>
+    `;
+  } else if (b.status === "Accepted") {
+    actions = `
+      <div class="actions">
+        <button class="btn btn-primary btn-sm" data-complete="${b.id}">
+          ✓ Mark Order Delivered & Completed
+        </button>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="booking-row">
+      <div class="top">
+        <div>
+          <h3>${escapeHtml(b.gigTitle)}</h3>
+          <div class="meta">
+            Client: <strong>${escapeHtml(b.clientName)}</strong> (${escapeHtml(b.clientEmail)}) &middot; 
+            Deadline: <strong>${fmtDate(new Date(b.date).getTime())}</strong>
+          </div>
+        </div>
+        <span class="status-pill status-${b.status}">${b.status}</span>
+      </div>
+      ${b.notes ? `<div class="notes"><strong>Client Notes:</strong> ${escapeHtml(b.notes)}</div>` : ''}
+      ${b.declineReason ? `<div class="notes" style="border-left:3px solid var(--coral);"><strong>Decline Reason Sent:</strong> ${escapeHtml(b.declineReason)}</div>` : ''}
+      ${actions}
+    </div>
+  `;
+}
+</script>
+</body>
+</html>

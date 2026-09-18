@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GigBoard — Post a Student Creator Gig</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><circle cx=%2250%22 cy=%2250%22 r=%2245%22 fill=%22%234F46E5%22/><text y=%2265%22 x=%2250%22 text-anchor=%22middle%22 font-size=%2250%22 fill=%22white%22>+</text></svg>">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<nav class="nav" id="nav"></nav>
+
+<main>
+  <div class="wrap" style="max-width:680px;">
+    
+    <div class="page-head" style="margin-bottom:28px;">
+      <span class="campus-tag-nav" style="margin-left:0; margin-bottom:8px; display:inline-block;">For Student Creators</span>
+      <h1 style="font-size:2.2rem; margin-bottom:6px;">List your skill as a campus gig</h1>
+      <p>Offer your creative & technical services to students and external clients at your own rates.</p>
+    </div>
+
+    <!-- Post Gig Card Form -->
+    <div class="card" id="postCard">
+      <form id="gigForm">
+        
+        <div class="grid-2">
+          <div class="field">
+            <label for="creatorName">Your Name <span class="req">*</span></label>
+            <input type="text" id="creatorName" required placeholder="e.g. Aisha Sharma">
+          </div>
+          <div class="field">
+            <label for="collegeCampus">Your College / Campus <span class="req">*</span></label>
+            <input type="text" id="collegeCampus" list="collegeList" required placeholder="e.g. IIT Delhi, BITS, DU, VIT">
+            <datalist id="collegeList">
+              <option value="IIT Delhi">
+              <option value="IIT Bombay">
+              <option value="BITS Pilani">
+              <option value="Delhi University">
+              <option value="VIT Vellore">
+              <option value="SRM Chennai">
+              <option value="NIT Trichy">
+              <option value="Mumbai University">
+            </datalist>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="title">Gig Title <span class="req">*</span></label>
+          <input type="text" id="title" required placeholder="e.g. Punchy YouTube Thumbnails, 24hr Turnaround" maxlength="80">
+          <span class="hint">Keep it action-driven, clear, and focused on the outcome.</span>
+        </div>
+
+        <div class="grid-2">
+          <div class="field">
+            <label for="category">Category <span class="req">*</span></label>
+            <select id="category" required></select>
+          </div>
+          <div class="field">
+            <label for="rate">Rate (₹ INR) <span class="req">*</span></label>
+            <div style="display:flex; gap:8px;">
+              <input type="number" id="rate" required min="1" placeholder="499" style="flex:1;">
+              <select id="rateUnit" style="flex:1.4;">
+                <option>per thumbnail</option>
+                <option>per video</option>
+                <option>per project</option>
+                <option>per hour</option>
+                <option>per track</option>
+                <option>per 100 words</option>
+                <option>per month</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="description">Description <span class="req">*</span></label>
+          <textarea id="description" required placeholder="What do you deliver? What tools do you use? What do you need from the client to get started?" maxlength="600"></textarea>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-full btn-lg">
+          🚀 Publish Gig on Marketplace
+        </button>
+      </form>
+    </div>
+
+    <!-- Confirmation Card -->
+    <div class="card" id="successCard" style="display:none; text-align:center; padding:40px 30px; margin-top:24px;">
+      <div style="width:64px; height:64px; border-radius:50%; background:var(--emerald-light); color:var(--emerald); display:flex; align-items:center; justify-content:center; font-size:2rem; margin:0 auto 18px;">
+        ✓
+      </div>
+      <h2 style="font-size:1.6rem; margin-bottom:8px;">Your Gig is Live!</h2>
+      <p id="successText" style="font-size:1rem; margin-bottom:20px; color:var(--text-muted);"></p>
+      <div style="display:flex; gap:12px; justify-content:center; flex-wrap:wrap;">
+        <a href="dashboard.html" class="btn btn-primary">Go to Creator Dashboard</a>
+        <a href="index.html" class="btn btn-ghost">View in Marketplace</a>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<div id="toastContainer" class="toast-container"></div>
+<footer id="footer"></footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase-client.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/store.js"></script>
+<script src="js/ui.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  if (!requireAuth({ allowedRoles: ["seller", "both"] })) return;
+  renderNav("post-gig.html");
+  renderFooter();
+
+  const catSelect = document.getElementById("category");
+  CATEGORIES.forEach(c => {
+    const opt = document.createElement("option");
+    opt.value = c; opt.textContent = c;
+    catSelect.appendChild(opt);
+  });
+
+  // Prefill creator details
+  const user = getCurrentUser();
+  const lastName = localStorage.getItem("gb_last_creator_name");
+  
+  if (user) {
+    document.getElementById("creatorName").value = user.fullName || "";
+    if (user.collegeName && user.collegeName !== "General Campus") {
+      document.getElementById("collegeCampus").value = user.collegeName;
+    }
+  } else if (lastName) {
+    document.getElementById("creatorName").value = lastName;
+  }
+
+  document.getElementById("gigForm").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const creatorName = document.getElementById("creatorName").value.trim();
+    const collegeCampus = document.getElementById("collegeCampus").value.trim() || "Indian Campus";
+    
+    const gig = {
+      id: uid("gig"),
+      title: document.getElementById("title").value.trim(),
+      category: document.getElementById("category").value,
+      rate: Number(document.getElementById("rate").value),
+      rateUnit: document.getElementById("rateUnit").value,
+      description: document.getElementById("description").value.trim(),
+      creatorName: creatorName,
+      creatorId: user ? user.id : "",
+      collegeCampus: collegeCampus,
+      createdAt: Date.now(),
+      completedCount: 0
+    };
+
+    saveGig(gig);
+    localStorage.setItem("gb_last_creator_name", creatorName);
+
+    // If logged in, ensure role is seller or both
+    if (user && user.role === "buyer") {
+      user.role = "both";
+      user.collegeName = collegeCampus;
+      saveUser(user);
+      localStorage.setItem(AUTH_KEYS.activeRole, "seller");
+    }
+
+    document.getElementById("postCard").style.display = "none";
+    document.getElementById("successText").textContent =
+      `"${gig.title}" is now visible to clients under ${gig.category} on ${collegeCampus}.`;
+    document.getElementById("successCard").style.display = "block";
+    showToast("Gig published successfully!", "success");
+    window.scrollTo({ top: 100, behavior: "smooth" });
+  });
+});
+</script>
+</body>
+</html>

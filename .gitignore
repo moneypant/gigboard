@@ -1,0 +1,19 @@
+# OS generated files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor directories
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Logs and databases
+*.log
+npm-debug.log*
+yarn-debug.log*
+
+# Node modules (if any tool is added later)
+node_modules/
+.npm

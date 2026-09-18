@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GigBoard — India's Student Creator Marketplace</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><circle cx=%2250%22 cy=%2250%22 r=%2245%22 fill=%22%234F46E5%22/><text y=%2265%22 x=%2250%22 text-anchor=%22middle%22 font-size=%2250%22 fill=%22white%22>⚡</text></svg>">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<nav class="nav" id="nav"></nav>
+
+<main>
+  <div class="wrap">
+    
+    <!-- Fiverr-style Hero Section -->
+    <section class="fiverr-hero">
+      <h1 class="fiverr-title">Find the right <em>student talent</em>, right now.</h1>
+      <p class="fiverr-subtitle">Hire verified creators from IITs, BITS, and top Indian campuses for high-converting video edits, thumbnail designs, UI/UX, and development.</p>
+
+      <!-- Big Search Bar -->
+      <div class="fiverr-search-bar">
+        <div class="fiverr-search-inner">
+          <svg class="fiverr-search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          <input type="text" id="search" placeholder="Search gigs by skill, creator or keyword (e.g. video editing, thumbnail, figma)..." autocomplete="off">
+        </div>
+        <button class="fiverr-search-btn" onclick="render()">Search</button>
+      </div>
+
+      <!-- Popular Tags -->
+      <div class="fiverr-popular-row">
+        <span class="popular-label">Popular:</span>
+        <button class="popular-tag" onclick="quickSearch('Video Editing')">Video Editing</button>
+        <button class="popular-tag" onclick="quickSearch('Thumbnail')">YouTube Thumbnails</button>
+        <button class="popular-tag" onclick="quickSearch('Figma')">UI/UX Design</button>
+        <button class="popular-tag" onclick="quickSearch('React')">Web Development</button>
+        <button class="popular-tag" onclick="quickSearch('Content')">Content Writing</button>
+      </div>
+
+      <!-- Campus Pills Filter -->
+      <div class="fiverr-campus-row">
+        <div class="campus-filter-bar" id="campusFilterBar">
+          <span class="campus-bar-label">Campus:</span>
+          <button class="campus-pill active" data-campus="">All Campuses</button>
+          <button class="campus-pill" data-campus="IIT Delhi">IIT Delhi</button>
+          <button class="campus-pill" data-campus="BITS Pilani">BITS Pilani</button>
+          <button class="campus-pill" data-campus="Delhi University">Delhi University</button>
+          <button class="campus-pill" data-campus="IIT Bombay">IIT Bombay</button>
+          <button class="campus-pill" data-campus="VIT Vellore">VIT Vellore</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Subhead Filter & Sorting Bar -->
+    <div class="fiverr-subhead">
+      <div class="fiverr-services-count" id="resultsCount">
+        Showing active student gigs
+      </div>
+
+      <div class="fiverr-controls">
+        <div class="fiverr-cat-select">
+          <select id="categoryFilter">
+            <option value="">All Categories</option>
+          </select>
+        </div>
+
+        <div class="sort-segmented" id="sortToggle">
+          <span class="sort-heading">Sort by:</span>
+          <button data-sort="featured" class="active">Featured</button>
+          <button data-sort="newest">Newest</button>
+          <button data-sort="price-low">Price: Low to High</button>
+          <button data-sort="price-high">Price: High to Low</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Results Grid -->
+    <div id="results"></div>
+
+  </div>
+</main>
+
+<div id="toastContainer" class="toast-container"></div>
+<footer id="footer"></footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase-client.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/store.js"></script>
+<script src="js/ui.js"></script>
+<script>
+let currentSort = "featured";
+let currentCampus = "";
+
+document.addEventListener("DOMContentLoaded", () => {
+  renderNav("index.html");
+  renderFooter();
+
+  // Populate category dropdown
+  const catSelect = document.getElementById("categoryFilter");
+  CATEGORIES.forEach(c => {
+    const opt = document.createElement("option");
+    opt.value = c; opt.textContent = c;
+    catSelect.appendChild(opt);
+  });
+
+  // Filter Listeners
+  document.getElementById("search").addEventListener("input", render);
+  catSelect.addEventListener("change", render);
+  
+  // Sort Toggle
+  document.getElementById("sortToggle").addEventListener("click", (e) => {
+    if (e.target.tagName !== "BUTTON") return;
+    currentSort = e.target.dataset.sort;
+    e.currentTarget.querySelectorAll("button").forEach(b => b.classList.toggle("active", b === e.target));
+    render();
+  });
+
+  // Campus Filter Pills
+  document.getElementById("campusFilterBar").addEventListener("click", (e) => {
+    if (!e.target.classList.contains("campus-pill")) return;
+    currentCampus = e.target.dataset.campus;
+    document.querySelectorAll(".campus-pill").forEach(p => p.classList.toggle("active", p === e.target));
+    render();
+  });
+
+  // Pre-filter from URL query params
+  const presetCat = new URLSearchParams(location.search).get("cat");
+  if (presetCat) catSelect.value = presetCat;
+  const presetCampus = new URLSearchParams(location.search).get("campus");
+  if (presetCampus) currentCampus = presetCampus;
+  if (typeof seedIfEmpty === "function") seedIfEmpty();
+  render();
+});
+
+function render() {
+  const q = document.getElementById("search").value.trim().toLowerCase();
+  const cat = document.getElementById("categoryFilter").value;
+  
+  let gigs = getGigs().filter(g => {
+    const matchesQ = !q || (g.title + g.description + g.category + g.creatorName + (g.collegeCampus||"")).toLowerCase().includes(q);
+    const matchesCat = !cat || g.category === cat;
+    const matchesCampus = !currentCampus || (g.collegeCampus && g.collegeCampus.toLowerCase().includes(currentCampus.toLowerCase()));
+    return matchesQ && matchesCat && matchesCampus;
+  });
+
+  // Sorting
+  if (currentSort === "featured") gigs = rankFeatured(gigs);
+  else if (currentSort === "newest") gigs = [...gigs].sort((a, b) => b.createdAt - a.createdAt);
+  else if (currentSort === "price-low") gigs = [...gigs].sort((a, b) => a.rate - b.rate);
+  else if (currentSort === "price-high") gigs = [...gigs].sort((a, b) => b.rate - a.rate);
+
+  const countEl = document.getElementById("resultsCount");
+  if (countEl) {
+    countEl.innerHTML = `Showing <strong>${gigs.length}</strong> active campus ${gigs.length === 1 ? "service" : "services"}`;
+  }
+
+  const results = document.getElementById("results");
+  if (!results) return;
+
+  if (gigs.length === 0) {
+    results.innerHTML = `
+      <div class="empty">
+        <h3>No gigs found matching your criteria</h3>
+        <p>Try clearing your search filters or <a href="become-seller.html" style="color:var(--primary); font-weight:700;">post a gig as a student creator</a>.</p>
+      </div>`;
+    return;
+  }
+
+  results.innerHTML = `<div class="gig-grid">${gigs.map(renderGigCard).join("")}</div>`;
+}
+
+function quickSearch(term) {
+  const s = document.getElementById("search");
+  if (s) {
+    s.value = term;
+    render();
+  }
+}
+
+function renderGigCard(g) {
+  const colors = CATEGORY_COLORS[g.category] || { dot: "#FF5A36", bg: "#FCF1D8", text: "#8A6116" };
+  const stats = creatorStats(g.creatorName);
+  const campus = g.collegeCampus || "Indian Campus";
+
+  // Initials for avatar
+  const initials = (g.creatorName || "C").split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase();
+
+  return `
+    <a href="book.html?gig=${g.id}" style="text-decoration:none; color:inherit; display:flex;">
+      <div class="card gig-card" style="width:100%;">
+        
+        <div class="gig-card-top">
+          <span class="cat-tag" style="background:${colors.bg}; color:${colors.text};">
+            ${escapeHtml(g.category)}
+          </span>
+          <span class="campus-chip">${escapeHtml(campus)}</span>
+        </div>
+
+        <h3>${escapeHtml(g.title)}</h3>
+
+        <div class="gig-creator-row">
+          <div class="creator-avatar-circle" style="background:${colors.bg}; color:${colors.text};">${initials}</div>
+          <div class="creator-details">
+            <span class="creator-name">${escapeHtml(g.creatorName)}</span>
+            <div class="creator-badges">
+              <span class="badge ${badgeClass(stats.badge)}">${stats.badge}</span>
+              ${(g.completedCount || 0) === 0 ? `<span class="badge" style="background:#FEF3C7; color:#92400E; font-weight:600; font-size:0.75rem; border:1px solid #FDE68A;">Rising Creator</span>` : ''}
+            </div>
+          </div>
+        </div>
+
+        <p class="desc">${escapeHtml(g.description).slice(0, 110)}${g.description.length > 110 ? "…" : ""}</p>
+
+        <div class="foot">
+          <div class="rate-wrap">
+            <span class="rate-price">₹${g.rate}</span>
+            <span class="rate-unit">${escapeHtml(g.rateUnit ? g.rateUnit.replace("per ", "/") : "/gig")}</span>
+          </div>
+          <span class="btn btn-primary btn-sm">Book Gig &rarr;</span>
+        </div>
+
+      </div>
+    </a>
+  `;
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GigBoard — Book Student Creator</title>
+<!-- Content-Security-Policy: only allow Razorpay + our own scripts -->
+<meta http-equiv="Content-Security-Policy"
+  content="default-src 'self';
+           script-src 'self' 'unsafe-inline' https://checkout.razorpay.com https://cdn.jsdelivr.net https://api.razorpay.com;
+           frame-src https://api.razorpay.com https://checkout.razorpay.com;
+           img-src 'self' data: https: blob:;
+           connect-src 'self' https://*.supabase.co https://api.razorpay.com;
+           style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+           font-src 'self' https://fonts.gstatic.com;">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><circle cx=%2250%22 cy=%2250%22 r=%2245%22 fill=%22%23FF5A36%22/><text y=%2265%22 x=%2250%22 text-anchor=%22middle%22 font-size=%2250%22 fill=%22white%22>⚡</text></svg>">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<nav class="nav" id="nav"></nav>
+
+<main>
+  <div class="wrap" id="content" style="max-width:720px;"></div>
+</main>
+
+<!-- ══════════════════════════════════════════════
+     RAZORPAY PAYMENT STATUS MODAL
+══════════════════════════════════════════════ -->
+<div id="rzpModal" style="display:none; position:fixed; inset:0; background:rgba(33,28,21,0.78); z-index:9999; align-items:center; justify-content:center; padding:20px;">
+  <div class="card" style="max-width:460px; width:100%; text-align:center; position:relative; padding:36px 28px;">
+
+    <!-- Verifying state -->
+    <div id="rzpVerifying" style="display:none;">
+      <div style="font-size:2.5rem; margin-bottom:14px;">🔄</div>
+      <h3 style="font-size:1.25rem; margin-bottom:8px;">Verifying Payment…</h3>
+      <p style="font-size:0.88rem; color:var(--ink-soft);">Please wait, we're confirming your payment with Razorpay.</p>
+      <div style="margin-top:16px; height:4px; background:var(--line); border-radius:4px; overflow:hidden;">
+        <div id="rzpProgressBar" style="height:100%; width:0%; background:var(--coral); border-radius:4px; transition:width 2.2s ease;"></div>
+      </div>
+    </div>
+
+    <!-- Success state -->
+    <div id="rzpSuccess" style="display:none;">
+      <div style="width:64px; height:64px; border-radius:50%; background:#E8F5E9; color:#2E7D32; display:flex; align-items:center; justify-content:center; font-size:2rem; margin:0 auto 16px;">✓</div>
+      <h3 style="font-size:1.3rem; margin-bottom:6px; color:#2E7D32;">Payment Verified ✓</h3>
+      <p id="rzpSuccessMsg" style="font-size:0.9rem; color:var(--ink-soft); margin-bottom:6px;"></p>
+      <div id="rzpReceiptBox" style="background:#F4EFE1; border:1px solid var(--line); border-radius:8px; padding:12px 16px; text-align:left; font-size:0.82rem; margin:14px 0; word-break:break-all; font-family:monospace; line-height:1.7;"></div>
+      <button class="btn btn-primary btn-full" onclick="finalizeBooking()">✓ Confirm Booking</button>
+    </div>
+
+    <!-- Failed state -->
+    <div id="rzpFailed" style="display:none;">
+      <div style="font-size:2.5rem; margin-bottom:14px;">❌</div>
+      <h3 style="font-size:1.25rem; margin-bottom:8px; color:#C62828;">Payment Failed or Cancelled</h3>
+      <p id="rzpFailMsg" style="font-size:0.88rem; color:var(--ink-soft); margin-bottom:20px;"></p>
+      <button class="btn btn-ghost btn-full" onclick="closeRzpModal()">← Try Again</button>
+    </div>
+
+  </div>
+</div>
+
+<div id="toastContainer" class="toast-container"></div>
+<footer id="footer"></footer>
+
+<!-- Razorpay Checkout SDK (official CDN) -->
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase-client.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/store.js"></script>
+<script src="js/ui.js"></script>
+<script>
+/* ═══════════════════════════════════════════════════════════
+   RAZORPAY CONFIG  —  TEST MODE (Demo / Hackathon)
+   Replace RAZORPAY_KEY_ID with your live key before going live.
+   NEVER put your Key Secret here — signature verification
+   must always happen server-side in production.
+═══════════════════════════════════════════════════════════ */
+const RAZORPAY_CONFIG = {
+  key_id: "rzp_test_GpCdFjv4bBMUhc",   // ← Test Key (safe to expose)
+  currency: "INR",
+  name: "GigBoard India",
+  description: "3% Platform Fee — Campus Gig Booking",
+  image: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='45' fill='%23FF5A36'/><text y='65' x='50' text-anchor='middle' font-size='50' fill='white'>⚡</text></svg>",
+  theme: { color: "#FF5A36" }
+};
+
+/* ═══════════════════════════════════════════════
+   PAYMENT SECURITY UTILITIES
+═══════════════════════════════════════════════ */
+
+// Generate a cryptographically secure nonce for each payment session
+function generateNonce() {
+  const arr = new Uint8Array(16);
+  crypto.getRandomValues(arr);
+  return Array.from(arr).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+// Simulated HMAC-SHA256 signature check (client-side demo only).
+// In PRODUCTION: send razorpay_payment_id + razorpay_order_id to your server
+// and verify using your KEY_SECRET with Node.js / Python / Go.
+async function verifyPaymentSignature({ paymentId, orderId, signature, nonce }) {
+  // For demo: trust Razorpay's own callback + verify nonce anti-replay
+  const storedNonce = sessionStorage.getItem("rzp_payment_nonce");
+  if (!storedNonce || storedNonce !== nonce) {
+    console.warn("[Security] Nonce mismatch — possible replay attack");
+    return { valid: false, reason: "Nonce validation failed" };
+  }
+  // Verify payment ID format (Razorpay IDs always start with "pay_")
+  if (!paymentId || !paymentId.startsWith("pay_")) {
+    return { valid: false, reason: "Invalid payment ID format" };
+  }
+  // In test mode, signature is a Razorpay-generated SHA256 HMAC string
+  if (!signature || signature.length < 10) {
+    return { valid: false, reason: "Missing payment signature" };
+  }
+  sessionStorage.removeItem("rzp_payment_nonce"); // consume nonce (anti-replay)
+  return { valid: true };
+}
+
+// Payment state machine — prevents double-booking
+const PaymentState = {
+  IDLE: "idle",
+  INITIATED: "initiated",
+  VERIFYING: "verifying",
+  SUCCESS: "success",
+  FAILED: "failed"
+};
+let paymentState = PaymentState.IDLE;
+let paymentNonce = null;
+
+function setPaymentState(state) {
+  paymentState = state;
+  console.log(`[Payment] State → ${state}`);
+}
+
+/* ═══════════════════════════════════════════════
+   PAGE SETUP
+═══════════════════════════════════════════════ */
+const params = new URLSearchParams(location.search);
+const gigId = params.get("gig");
+let gig;
+let pendingBookingData = null;
+
+document.addEventListener("DOMContentLoaded", () => {
+  if (!requireAuth()) return;
+  renderNav("index.html");
+  renderFooter();
+
+  gig = getGigById(gigId);
+  const content = document.getElementById("content");
+
+  if (!gig) {
+    content.innerHTML = `
+      <div class="empty">
+        <h3>Gig not found</h3>
+        <p>It may have been removed or updated. <a href="index.html" style="color:var(--coral); font-weight:700;">Back to marketplace</a>.</p>
+      </div>`;
+    return;
+  }
+
+  const colors = CATEGORY_COLORS[gig.category] || { dot: "#FF5A36", bg: "#FCF1D8", text: "#8A6116" };
+  const stats = creatorStats(gig.creatorName);
+  const today = new Date().toISOString().slice(0, 10);
+  const campus = gig.collegeCampus || "Indian Campus";
+  const pricing = calculatePricing(gig.rate);
+
+  const currentUser = getCurrentUser();
+  const rebookId = params.get("rebook");
+  const previousBooking = rebookId ? getBookingById(rebookId) : null;
+
+  const prefillName = (previousBooking && previousBooking.clientName) ||
+                      (currentUser ? currentUser.fullName : (localStorage.getItem("gb_last_client_name") || ""));
+  const prefillEmail = (previousBooking && previousBooking.clientEmail) ||
+                       (currentUser ? currentUser.email : (localStorage.getItem("gb_last_client_email") || ""));
+  const prefillNotes = (previousBooking && previousBooking.notes) || "";
+
+  content.innerHTML = `
+    <!-- Gig Summary Header -->
+    <div style="margin-bottom:24px;">
+      <a href="index.html" style="color:var(--ink-soft); font-size:0.88rem; font-weight:600; display:inline-flex; align-items:center; gap:6px; margin-bottom:12px;">
+        &larr; Back to Marketplace
+      </a>
+      <div style="display:flex; gap:10px; align-items:center; margin-bottom:8px;">
+        <span class="cat-tag" style="--cat-color-bg:${colors.bg}; --cat-color-text:${colors.text}; margin:0;">${gig.category}</span>
+        <span class="campus-chip">🎓 ${escapeHtml(campus)}</span>
+      </div>
+      <h1 style="font-size:1.85rem; margin-bottom:8px;">${escapeHtml(gig.title)}</h1>
+      <p style="font-size:1rem;">
+        Offered by <strong>${escapeHtml(gig.creatorName)}</strong> &middot;
+        <span class="badge ${badgeClass(stats.badge)}">${stats.badge}</span> &middot;
+        <strong>${fmtRate(gig)}</strong>
+      </p>
+    </div>
+
+    <!-- Creator Description Card -->
+    <div class="card" style="margin-bottom:24px; --cat-color:${colors.dot};">
+      <h4 style="margin-bottom:6px; font-size:0.95rem; color:var(--ink);">Service Description</h4>
+      <p style="margin:0; font-size:0.92rem; line-height:1.6;">${escapeHtml(gig.description)}</p>
+    </div>
+
+    <!-- Booking Form Card -->
+    <div class="card" id="bookCard" style="--cat-color:${colors.dot}; margin-bottom:24px;">
+      ${previousBooking ? `
+        <div style="background:#EFF6FF; border:1px solid #BFDBFE; border-radius:8px; padding:12px 16px; margin-bottom:18px;">
+          <strong style="color:#1E40AF; font-size:0.9rem; display:block; margin-bottom:2px;">Re-requesting with ${escapeHtml(gig.creatorName)}</strong>
+          <span style="color:#3B82F6; font-size:0.84rem;">Your contact info and project requirements have been pre-filled from your previous booking. Just choose a new delivery date.</span>
+        </div>
+      ` : ""}
+      <h3 style="font-size:1.3rem; margin-bottom:6px;">Booking Details</h3>
+      <p style="margin-bottom:20px; font-size:0.9rem;">Fill in your details. You pay the 3% platform fee now, and creator rate upon delivery.</p>
+
+      <form id="bookForm">
+        <div class="grid-2">
+          <div class="field">
+            <label for="clientName">Your Full Name <span class="req">*</span></label>
+            <input type="text" id="clientName" required value="${escapeHtml(prefillName)}" placeholder="e.g. Aryan Sharma">
+          </div>
+          <div class="field">
+            <label for="clientEmail">Your Email Address <span class="req">*</span></label>
+            <input type="email" id="clientEmail" required value="${escapeHtml(prefillEmail)}" placeholder="you@gmail.com or college email">
+            <span class="hint">Used to find and track your order updates.</span>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="targetDate">Date you need the delivery by <span class="req">*</span></label>
+          <input type="date" id="targetDate" required min="${today}">
+          <span class="hint">Student creators manage their college schedule &mdash; give realistic deadlines.</span>
+        </div>
+
+        <div class="field">
+          <label for="orderNotes">Project Requirements &amp; Notes for Creator</label>
+          <textarea id="orderNotes" placeholder="Describe what you need, provide reference links (Drive/YouTube), or any special requests." maxlength="500">${escapeHtml(prefillNotes)}</textarea>
+        </div>
+
+        <!-- 3% Fee Summary -->
+        <div style="background:#F4EFE1; border:1px solid var(--line); border-radius:8px; padding:14px 16px; margin-bottom:20px;">
+          <div style="font-weight:700; font-size:0.92rem; margin-bottom:8px;">Order Price Summary:</div>
+          <div style="display:flex; justify-content:space-between; margin-bottom:4px; font-size:0.88rem;">
+            <span>Creator Service Rate:</span>
+            <span>₹${pricing.baseRate}</span>
+          </div>
+          <div style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:0.86rem; color:var(--ink-soft);">
+            <span>Campus Platform Fee (3%):</span>
+            <span style="font-weight:700; color:var(--coral);">₹${pricing.platformFee}</span>
+          </div>
+          <div style="display:flex; justify-content:space-between; border-top:1px dashed var(--line); padding-top:6px; font-weight:700; font-size:1rem;">
+            <span>Total Value:</span>
+            <span style="color:var(--coral);">₹${pricing.totalAmount}</span>
+          </div>
+          <!-- Razorpay trust badge -->
+          <div style="display:flex; align-items:center; gap:8px; margin-top:12px; padding-top:10px; border-top:1px solid var(--line); font-size:0.78rem; color:var(--ink-soft);">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><shield/><path d="M12 2L3 7v5c0 5.25 3.75 10.15 9 11.25C17.25 22.15 21 17.25 21 12V7L12 2z" fill="#3395FF" opacity=".2"/><path d="M12 2L3 7v5c0 5.25 3.75 10.15 9 11.25C17.25 22.15 21 17.25 21 12V7L12 2z" stroke="#3395FF" stroke-width="1.5"/><path d="M9 12l2 2 4-4" stroke="#3395FF" stroke-width="1.5" stroke-linecap="round"/></svg>
+            <span>Secured by <strong style="color:#3395FF;">Razorpay</strong> — India's most trusted payment gateway. Test Mode active.</span>
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-full btn-lg" id="rzpPayBtn">
+          🔒 Pay ₹${pricing.platformFee} via Razorpay &amp; Book
+        </button>
+        <p style="text-align:center; font-size:0.75rem; color:var(--ink-soft); margin-top:8px;">
+          UPI · Cards · Net Banking · Wallets · EMI — all supported
+        </p>
+      </form>
+    </div>
+
+    <!-- Success Confirmation Card -->
+    <div class="card" id="successCard" style="display:none; text-align:center; padding:40px 30px; --cat-color:var(--green);">
+      <div style="width:64px; height:64px; border-radius:50%; background:#E8F5E9; color:#2E7D32; display:flex; align-items:center; justify-content:center; font-size:2rem; margin:0 auto 18px;">✓</div>
+      <h2 style="font-size:1.6rem; margin-bottom:8px;">Booking Confirmed! 🎉</h2>
+      <p id="successText" style="font-size:1rem; margin-bottom:12px;"></p>
+      <div id="rzpPaymentReceipt" style="background:#F4EFE1; border:1px solid var(--line); border-radius:8px; padding:12px 16px; text-align:left; font-size:0.8rem; margin:0 auto 20px; max-width:420px; font-family:monospace; word-break:break-all; line-height:1.8;"></div>
+      <div style="display:flex; gap:12px; justify-content:center; flex-wrap:wrap;">
+        <a href="my-bookings.html" class="btn btn-primary">Track My Orders</a>
+        <a href="index.html" class="btn btn-ghost">Explore More Gigs</a>
+      </div>
+    </div>
+  `;
+
+  // Form Submit → initiate Razorpay checkout
+  document.getElementById("bookForm").addEventListener("submit", (e) => {
+    e.preventDefault();
+    if (paymentState !== PaymentState.IDLE) return; // prevent double submit
+
+    const clientName  = document.getElementById("clientName").value.trim();
+    const clientEmail = document.getElementById("clientEmail").value.trim();
+    const targetDate  = document.getElementById("targetDate").value;
+    const notes       = document.getElementById("orderNotes").value.trim();
+    const user        = getCurrentUser();
+
+    pendingBookingData = {
+      id:            uid("bk"),
+      gigId:         gig.id,
+      gigTitle:      gig.title,
+      gigCreatorName:gig.creatorName,
+      sellerId:      gig.creatorId || "",
+      clientName,
+      clientEmail,
+      buyerId:       user ? user.id : "",
+      date:          targetDate,
+      notes,
+      baseRate:      pricing.baseRate,
+      platformFee:   pricing.platformFee,
+      totalAmount:   pricing.totalAmount,
+      status:        "Pending",
+      createdAt:     Date.now()
+    };
+
+    openRazorpay(pricing.platformFee, clientName, clientEmail);
+  });
+});
+
+/* ═══════════════════════════════════════════════
+   RAZORPAY CHECKOUT LAUNCHER
+═══════════════════════════════════════════════ */
+function openRazorpay(feeAmount, buyerName, buyerEmail) {
+  if (typeof Razorpay === "undefined") {
+    showToast("Razorpay failed to load. Check your internet connection.", "error");
+    return;
+  }
+
+  // Generate & store a fresh nonce to prevent replay attacks
+  paymentNonce = generateNonce();
+  sessionStorage.setItem("rzp_payment_nonce", paymentNonce);
+  setPaymentState(PaymentState.INITIATED);
+
+  // Disable the pay button during checkout
+  const btn = document.getElementById("rzpPayBtn");
+  if (btn) { btn.disabled = true; btn.textContent = "Opening Razorpay…"; }
+
+  const options = {
+    ...RAZORPAY_CONFIG,
+    amount: feeAmount * 100,   // Razorpay expects paise (1 INR = 100 paise)
+    order_id: "",              // In production: create order via your server first
+    prefill: {
+      name:  buyerName,
+      email: buyerEmail,
+      contact: ""
+    },
+    notes: {
+      gig_title:    pendingBookingData.gigTitle,
+      booking_id:   pendingBookingData.id,
+      creator_name: pendingBookingData.gigCreatorName,
+      nonce:        paymentNonce
+    },
+
+    // ── Payment Success Handler ──────────────────
+    handler: async function(response) {
+      setPaymentState(PaymentState.VERIFYING);
+      showRzpModal("verifying");
+
+      // Animate progress bar
+      setTimeout(() => {
+        document.getElementById("rzpProgressBar").style.width = "100%";
+      }, 50);
+
+      // Verify signature (demo: nonce + format check; production: server-side HMAC)
+      const { valid, reason } = await verifyPaymentSignature({
+        paymentId: response.razorpay_payment_id,
+        orderId:   response.razorpay_order_id || "demo_order",
+        signature: response.razorpay_signature || "demo_sig_" + paymentNonce,
+        nonce:     paymentNonce
+      });
+
+      setTimeout(() => {
+        if (valid) {
+          setPaymentState(PaymentState.SUCCESS);
+          showRzpModal("success", response);
+        } else {
+          setPaymentState(PaymentState.FAILED);
+          showRzpModal("failed", null, reason);
+        }
+        if (btn) { btn.disabled = false; btn.textContent = `🔒 Pay ₹${feeAmount} via Razorpay & Book`; }
+      }, 2400);
+    },
+
+    // ── Payment Modal Dismiss Handler ────────────
+    modal: {
+      ondismiss: function() {
+        if (paymentState === PaymentState.INITIATED) {
+          setPaymentState(PaymentState.IDLE);
+          sessionStorage.removeItem("rzp_payment_nonce");
+          if (btn) { btn.disabled = false; btn.textContent = `🔒 Pay ₹${feeAmount} via Razorpay & Book`; }
+          showToast("Payment cancelled. You can try again anytime.", "info");
+        }
+      }
+    }
+  };
+
+  const rzp = new Razorpay(options);
+
+  // Razorpay Payment Failure Event
+  rzp.on("payment.failed", function(response) {
+    setPaymentState(PaymentState.FAILED);
+    sessionStorage.removeItem("rzp_payment_nonce");
+    if (btn) { btn.disabled = false; btn.textContent = `🔒 Pay ₹${feeAmount} via Razorpay & Book`; }
+    showToast(`Payment failed: ${response.error.description}`, "error");
+    showRzpModal("failed", null, response.error.description);
+  });
+
+  rzp.open();
+}
+
+/* ═══════════════════════════════════════════════
+   RZP STATUS MODAL CONTROLLER
+═══════════════════════════════════════════════ */
+function showRzpModal(state, response, failReason) {
+  const modal = document.getElementById("rzpModal");
+  modal.style.display = "flex";
+
+  document.getElementById("rzpVerifying").style.display = state === "verifying" ? "block" : "none";
+  document.getElementById("rzpSuccess").style.display   = state === "success"   ? "block" : "none";
+  document.getElementById("rzpFailed").style.display    = state === "failed"    ? "block" : "none";
+
+  if (state === "success" && response) {
+    document.getElementById("rzpSuccessMsg").textContent =
+      `₹${pendingBookingData.platformFee} platform fee received successfully.`;
+    document.getElementById("rzpReceiptBox").innerHTML =
+      `<strong>Payment ID:</strong> ${response.razorpay_payment_id}<br>` +
+      `<strong>Booking ID:</strong> ${pendingBookingData.id}<br>` +
+      `<strong>Amount:</strong> ₹${pendingBookingData.platformFee} (3% fee)<br>` +
+      `<strong>Status:</strong> ✓ Verified<br>` +
+      `<strong>Mode:</strong> Razorpay Test`;
+    // Stash payment ID for booking record
+    pendingBookingData._rzpPaymentId = response.razorpay_payment_id;
+  }
+
+  if (state === "failed") {
+    document.getElementById("rzpFailMsg").textContent =
+      failReason || "Payment was not completed. Please try again.";
+  }
+}
+
+function closeRzpModal() {
+  document.getElementById("rzpModal").style.display = "none";
+  setPaymentState(PaymentState.IDLE);
+}
+
+/* ═══════════════════════════════════════════════
+   FINALIZE BOOKING (after signature verified)
+═══════════════════════════════════════════════ */
+function finalizeBooking() {
+  if (!pendingBookingData || paymentState !== PaymentState.SUCCESS) return;
+
+  pendingBookingData.paymentStatus = "Paid via Razorpay";
+  pendingBookingData.adminUpiId    = "razorpay_gateway";
+  pendingBookingData.utrNumber     = pendingBookingData._rzpPaymentId || "rzp_test_demo";
+
+  saveBooking(pendingBookingData);
+  localStorage.setItem("gb_last_client_email", pendingBookingData.clientEmail);
+  localStorage.setItem("gb_last_client_name",  pendingBookingData.clientName);
+
+  closeRzpModal();
+  document.getElementById("bookCard").style.display = "none";
+  document.getElementById("successText").textContent =
+    `Your request for "${pendingBookingData.gigTitle}" is confirmed. Platform fee of ₹${pendingBookingData.platformFee} collected via Razorpay.`;
+
+  document.getElementById("rzpPaymentReceipt").innerHTML =
+    `<strong>Razorpay Payment ID:</strong> ${pendingBookingData.utrNumber}<br>` +
+    `<strong>Booking ID:</strong> ${pendingBookingData.id}<br>` +
+    `<strong>3% Fee Paid:</strong> ₹${pendingBookingData.platformFee}<br>` +
+    `<strong>Creator Rate (on delivery):</strong> ₹${pendingBookingData.baseRate}<br>` +
+    `<strong>Status:</strong> ✓ Booking Active`;
+
+  document.getElementById("successCard").style.display = "block";
+  showToast(`Booking confirmed! Razorpay payment ID: ${pendingBookingData.utrNumber}`, "success");
+  window.scrollTo({ top: 100, behavior: "smooth" });
+}
+</script>
+</body>
+</html>

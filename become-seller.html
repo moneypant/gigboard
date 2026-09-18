@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GigBoard — Become a Student Seller</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><circle cx=%2250%22 cy=%2250%22 r=%2245%22 fill=%22%23FF5A36%22/><text y=%2265%22 x=%2250%22 text-anchor=%22middle%22 font-size=%2250%22 fill=%22white%22>🚀</text></svg>">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body class="seller-onboarding-page">
+<nav class="nav" id="nav"></nav>
+
+<main class="onboarding-main">
+  <div class="wrap onboarding-container">
+    
+    <!-- Hero Introduction Header (Fiverr Style) -->
+    <div class="seller-hero">
+      <div class="seller-hero-content">
+        <span class="badge-campus-hero">🎓 Indian Student Creator Program</span>
+        <h1>Turn your campus skills into paid freelance work</h1>
+        <p>No 9-to-5, no irrelevant part-time jobs. Offer thumbnail design, video editing, coding, tutoring, or music to students & clients across India at your own rates.</p>
+      </div>
+      <div class="seller-hero-stats">
+        <div class="stat-pill"><strong>Only 3%</strong> Platform Fee (Keep 97%)</div>
+        <div class="stat-pill"><strong>Direct UPI</strong> Payouts</div>
+        <div class="stat-pill"><strong>Verified</strong> Campus Badges</div>
+      </div>
+    </div>
+
+    <!-- Stepper Navigation -->
+    <div class="stepper-bar">
+      <div class="step-item active" id="stepIndicator1">
+        <div class="step-number">1</div>
+        <div class="step-label">Personal & Campus Info</div>
+      </div>
+      <div class="step-divider"></div>
+      <div class="step-item" id="stepIndicator2">
+        <div class="step-number">2</div>
+        <div class="step-label">Skills & Profile</div>
+      </div>
+      <div class="step-divider"></div>
+      <div class="step-item" id="stepIndicator3">
+        <div class="step-number">3</div>
+        <div class="step-label">Publish First Gig</div>
+      </div>
+    </div>
+
+    <!-- Form Container -->
+    <div class="card onboarding-card">
+      <form id="sellerOnboardingForm" onsubmit="handleFormSubmit(event)">
+
+        <!-- STEP 1: Personal & Campus Identity -->
+        <div class="onboarding-step" id="step1">
+          <div class="step-heading">
+            <h2>Step 1: Your Personal & College Identity</h2>
+            <p>Tell clients who you are. College verification builds instant trust with clients.</p>
+          </div>
+
+          <div class="avatar-select-section">
+            <label>Choose your student avatar</label>
+            <div class="avatar-grid" id="avatarPicker">
+              <button type="button" class="avatar-btn active" onclick="pickAvatar('👩‍💻', this)">👩‍💻</button>
+              <button type="button" class="avatar-btn" onclick="pickAvatar('👨‍💻', this)">👨‍💻</button>
+              <button type="button" class="avatar-btn" onclick="pickAvatar('🎨', this)">🎨</button>
+              <button type="button" class="avatar-btn" onclick="pickAvatar('✍️', this)">✍️</button>
+              <button type="button" class="avatar-btn" onclick="pickAvatar('🎧', this)">🎧</button>
+              <button type="button" class="avatar-btn" onclick="pickAvatar('📸', this)">📸</button>
+              <button type="button" class="avatar-btn" onclick="pickAvatar('🚀', this)">🚀</button>
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div class="field">
+              <label for="sellerName">Full Name <span class="req">*</span></label>
+              <input type="text" id="sellerName" required placeholder="e.g. Aisha Sharma">
+            </div>
+            <div class="field">
+              <label for="sellerEmail">Email address <span class="req">*</span></label>
+              <input type="email" id="sellerEmail" required placeholder="Personal or college email">
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div class="field">
+              <label for="sellerCollege">College / University Name <span class="req">*</span></label>
+              <input type="text" id="sellerCollege" list="collegeList" required placeholder="e.g. IIT Delhi, BITS, DU, VIT">
+              <datalist id="collegeList">
+                <option value="IIT Delhi">
+                <option value="IIT Bombay">
+                <option value="BITS Pilani">
+                <option value="Delhi University (DU)">
+                <option value="Mumbai University">
+                <option value="VIT Vellore">
+                <option value="SRM Chennai">
+                <option value="NIT Trichy">
+                <option value="IIIT Hyderabad">
+                <option value="Christ University, Bangalore">
+              </datalist>
+            </div>
+            <div class="field">
+              <label for="sellerCity">City <span class="req">*</span></label>
+              <input type="text" id="sellerCity" required placeholder="e.g. New Delhi, Bengaluru, Mumbai">
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div class="field">
+              <label for="sellerDegree">Degree / Major & Year</label>
+              <input type="text" id="sellerDegree" placeholder="e.g. B.Tech Computer Science (3rd Year)">
+            </div>
+            <div class="field">
+              <label for="sellerUpi">UPI ID (for client payouts)</label>
+              <input type="text" id="sellerUpi" placeholder="e.g. yourname@upi or yourphone@paytm">
+              <span class="hint">Clients pay you directly. 100% of earnings stay with you.</span>
+            </div>
+          </div>
+
+          <!-- Password field — only shown for new users who aren't logged in yet -->
+          <div class="grid-2" id="passwordRow">
+            <div class="field">
+              <label for="sellerPassword">Create a Password <span class="req">*</span></label>
+              <input type="password" id="sellerPassword" placeholder="Min. 6 characters — you'll use this to log in again" autocomplete="new-password">
+              <span class="hint">Remember this! You'll need it to log back into your seller account.</span>
+            </div>
+            <div class="field">
+              <label for="sellerPasswordConfirm">Confirm Password <span class="req">*</span></label>
+              <input type="password" id="sellerPasswordConfirm" placeholder="Re-enter your password" autocomplete="new-password">
+            </div>
+          </div>
+
+          <div class="step-action-row">
+            <div></div>
+            <button type="button" class="btn btn-primary btn-lg" onclick="goToStep(2)">
+              Next: Professional Skills &rarr;
+            </button>
+          </div>
+        </div>
+
+        <!-- STEP 2: Skills & Bio -->
+        <div class="onboarding-step" id="step2" style="display:none;">
+          <div class="step-heading">
+            <h2>Step 2: Professional Skills & Story</h2>
+            <p>Highlight your creative superpowers and software expertise.</p>
+          </div>
+
+          <div class="field">
+            <label for="primaryCategory">Primary Service Category <span class="req">*</span></label>
+            <select id="primaryCategory" required>
+              <option value="Thumbnail Design">Thumbnail Design</option>
+              <option value="Video Editing">Video Editing</option>
+              <option value="Graphic Design">Graphic Design</option>
+              <option value="Content Writing">Content Writing</option>
+              <option value="Music Production">Music Production</option>
+              <option value="Social Media Management">Social Media Management</option>
+              <option value="Tutoring">Tutoring</option>
+              <option value="Voice Over">Voice Over</option>
+              <option value="Web Design">Web Design</option>
+              <option value="Photography">Photography</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="sellerBio">Creator Bio & Tagline <span class="req">*</span></label>
+            <textarea id="sellerBio" required placeholder="Introduce yourself. E.g. 'Hey! I am a 2nd-year student at IITD with 3+ years of experience in Premiere Pro and Photoshop. I have edited videos that gained over 500k views on YouTube.'" maxlength="500"></textarea>
+            <span class="hint">Share what makes your work reliable and what tools you use.</span>
+          </div>
+
+          <div class="field">
+            <label for="sellerSkills">Skills & Software Tools (Comma separated)</label>
+            <input type="text" id="sellerSkills" placeholder="e.g. Figma, Adobe Premiere Pro, Canva, Python, SEO, Photoshop">
+          </div>
+
+          <div class="field">
+            <label for="portfolioUrl">Portfolio / Work Sample Link (Optional)</label>
+            <input type="url" id="portfolioUrl" placeholder="e.g. https://behance.net/you, GitHub or Drive folder">
+          </div>
+
+          <div class="step-action-row">
+            <button type="button" class="btn btn-ghost" onclick="goToStep(1)">&larr; Back</button>
+            <button type="button" class="btn btn-primary btn-lg" onclick="goToStep(3)">
+              Next: Create First Gig &rarr;
+            </button>
+          </div>
+        </div>
+
+        <!-- STEP 3: Create First Gig -->
+        <div class="onboarding-step" id="step3" style="display:none;">
+          <div class="step-heading">
+            <h2>Step 3: Publish Your First Gig</h2>
+            <p>Define exactly what service you offer, how much you charge, and turnaround time.</p>
+          </div>
+
+          <div class="field">
+            <label for="gigTitle">Gig Title <span class="req">*</span></label>
+            <input type="text" id="gigTitle" required placeholder="e.g. High-CTR YouTube Thumbnails, 24hr Turnaround" maxlength="80">
+            <span class="hint">Keep it catchy, clear, and focused on the outcome.</span>
+          </div>
+
+          <div class="grid-2">
+            <div class="field">
+              <label for="gigCategory">Category</label>
+              <select id="gigCategory"></select>
+            </div>
+            <div class="field">
+              <label for="gigRate">Your Rate (₹ INR) <span class="req">*</span></label>
+              <div style="display:flex; gap:8px;">
+                <input type="number" id="gigRate" required min="1" placeholder="499" style="flex:1;">
+                <select id="gigRateUnit" style="flex:1.4;">
+                  <option>per thumbnail</option>
+                  <option>per video</option>
+                  <option>per hour</option>
+                  <option>per project</option>
+                  <option>per track</option>
+                  <option>per 100 words</option>
+                  <option>per month</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="gigDesc">What will you deliver? (Detailed Description) <span class="req">*</span></label>
+            <textarea id="gigDesc" required placeholder="Detail the deliverable, number of revisions included, and what you need from the buyer to get started." maxlength="600"></textarea>
+          </div>
+
+          <!-- Live Gig Card Preview -->
+          <div class="preview-box">
+            <div class="preview-label">Live Marketplace Card Preview</div>
+            <div class="card gig-card preview-card" id="cardPreview">
+              <span class="cat-tag" id="prevCatTag">Category</span>
+              <h3 id="prevTitle">Your Gig Title Will Appear Here</h3>
+              <div class="creator">
+                by <span id="prevCreatorName">You</span> &middot; 
+                <span class="badge new">New Creator</span> &middot; 
+                <span class="campus-badge" id="prevCampusBadge">🎓 Your Campus</span>
+              </div>
+              <p class="desc" id="prevDesc">Your gig description will give buyers clarity on what you deliver.</p>
+              <div class="foot">
+                <div class="rate" id="prevRate">₹499<span> per gig</span></div>
+                <span class="btn btn-primary btn-sm">Book this</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="step-action-row">
+            <button type="button" class="btn btn-ghost" onclick="goToStep(2)">&larr; Back</button>
+            <button type="submit" class="btn btn-primary btn-lg" id="publishBtn">
+              🚀 Publish Gig & Launch Dashboard
+            </button>
+          </div>
+        </div>
+
+      </form>
+    </div>
+
+  </div>
+</main>
+
+<div id="toastContainer" class="toast-container"></div>
+<footer id="footer"></footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase-client.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/store.js"></script>
+<script src="js/ui.js"></script>
+<script>
+let selectedAvatar = "👩‍💻";
+
+document.addEventListener("DOMContentLoaded", () => {
+  renderNav("become-seller.html");
+  renderFooter();
+
+  // Populate Categories
+  const catSelect = document.getElementById("gigCategory");
+  CATEGORIES.forEach(c => {
+    const opt = document.createElement("option");
+    opt.value = c; opt.textContent = c;
+    catSelect.appendChild(opt);
+  });
+
+  // Prefill if user is already logged in
+  const user = getCurrentUser();
+  if (user) {
+    document.getElementById("sellerName").value = user.fullName || "";
+    document.getElementById("sellerEmail").value = user.email || "";
+    document.getElementById("sellerEmail").readOnly = true;
+    document.getElementById("sellerCollege").value = user.collegeName !== "General Campus" ? user.collegeName : "";
+    document.getElementById("sellerCity").value = user.city || "";
+    document.getElementById("sellerDegree").value = user.degree || "";
+    document.getElementById("sellerUpi").value = user.upiId || "";
+    if (user.sellerBio) document.getElementById("sellerBio").value = user.sellerBio;
+    if (user.skills && user.skills.length) document.getElementById("sellerSkills").value = user.skills.join(", ");
+    // Already logged in — no need to create a password
+    document.getElementById("passwordRow").style.display = "none";
+  }
+
+  // Setup live preview listeners
+  const titleInput = document.getElementById("gigTitle");
+  const descInput = document.getElementById("gigDesc");
+  const rateInput = document.getElementById("gigRate");
+  const unitInput = document.getElementById("gigRateUnit");
+  const catInput = document.getElementById("gigCategory");
+
+  const updatePreview = () => {
+    document.getElementById("prevTitle").textContent = titleInput.value.trim() || "Your Gig Title Will Appear Here";
+    document.getElementById("prevDesc").textContent = descInput.value.trim() || "Your gig description will give buyers clarity on what you deliver.";
+    const rate = rateInput.value.trim() || "499";
+    const unit = unitInput.value;
+    document.getElementById("prevRate").innerHTML = `₹${rate}<span> ${unit}</span>`;
+    const cat = catInput.value;
+    document.getElementById("prevCatTag").textContent = cat;
+    const colors = CATEGORY_COLORS[cat] || { dot: "#FF5A36", bg: "#FDE3DA", text: "#B33A1E" };
+    document.getElementById("cardPreview").style.setProperty("--cat-color", colors.dot);
+    document.getElementById("prevCatTag").style.setProperty("--cat-color-bg", colors.bg);
+    document.getElementById("prevCatTag").style.setProperty("--cat-color-text", colors.text);
+    const college = document.getElementById("sellerCollege").value.trim() || "Your Campus";
+    document.getElementById("prevCampusBadge").textContent = `🎓 ${college}`;
+    document.getElementById("prevCreatorName").textContent = document.getElementById("sellerName").value.trim() || "You";
+  };
+
+  [titleInput, descInput, rateInput, unitInput, catInput].forEach(el => el.addEventListener("input", updatePreview));
+  document.getElementById("sellerCollege").addEventListener("input", updatePreview);
+  document.getElementById("sellerName").addEventListener("input", updatePreview);
+  catInput.addEventListener("change", updatePreview);
+  updatePreview();
+});
+
+function pickAvatar(avatar, btn) {
+  selectedAvatar = avatar;
+  document.querySelectorAll(".avatar-btn").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+}
+
+function goToStep(stepNumber) {
+  // Simple validation for step 1
+  if (stepNumber === 2) {
+    const name = document.getElementById("sellerName").value.trim();
+    const email = document.getElementById("sellerEmail").value.trim();
+    const college = document.getElementById("sellerCollege").value.trim();
+    if (!name || !email || !college) {
+      showToast("Please fill in your name, email, and college name to proceed.", "error");
+      return;
+    }
+    // Validate password only for new users (not already logged in)
+    if (!getCurrentUser()) {
+      const pwd = document.getElementById("sellerPassword").value;
+      const pwdConfirm = document.getElementById("sellerPasswordConfirm").value;
+      if (!pwd || pwd.length < 6) {
+        showToast("Please create a password with at least 6 characters.", "error");
+        return;
+      }
+      if (pwd !== pwdConfirm) {
+        showToast("Passwords don't match. Please check and try again.", "error");
+        return;
+      }
+    }
+  }
+
+  // Simple validation for step 2
+  if (stepNumber === 3) {
+    const bio = document.getElementById("sellerBio").value.trim();
+    if (!bio) {
+      showToast("Please provide a short bio or tagline.", "error");
+      return;
+    }
+    // Sync category dropdown with primary category
+    const primCat = document.getElementById("primaryCategory").value;
+    document.getElementById("gigCategory").value = primCat;
+    document.getElementById("gigCategory").dispatchEvent(new Event("change"));
+  }
+
+  [1, 2, 3].forEach(n => {
+    document.getElementById(`step${n}`).style.display = n === stepNumber ? "block" : "none";
+    const indicator = document.getElementById(`stepIndicator${n}`);
+    indicator.classList.toggle("active", n === stepNumber);
+    indicator.classList.toggle("completed", n < stepNumber);
+  });
+  window.scrollTo({ top: 120, behavior: "smooth" });
+}
+
+async function handleFormSubmit(e) {
+  e.preventDefault();
+
+  const name = document.getElementById("sellerName").value.trim();
+  const email = document.getElementById("sellerEmail").value.trim();
+  const college = document.getElementById("sellerCollege").value.trim();
+  const city = document.getElementById("sellerCity").value.trim();
+  const degree = document.getElementById("sellerDegree").value.trim();
+  const upiId = document.getElementById("sellerUpi").value.trim();
+  const bio = document.getElementById("sellerBio").value.trim();
+  const skills = document.getElementById("sellerSkills").value.split(",").map(s => s.trim()).filter(Boolean);
+  const portfolioUrl = document.getElementById("portfolioUrl").value.trim();
+
+  const gigTitle = document.getElementById("gigTitle").value.trim();
+  const gigCategory = document.getElementById("gigCategory").value;
+  const gigRate = Number(document.getElementById("gigRate").value);
+  const gigRateUnit = document.getElementById("gigRateUnit").value;
+  const gigDesc = document.getElementById("gigDesc").value.trim();
+
+  let user = getCurrentUser();
+  if (!user) {
+    // If not logged in, create account with user's chosen password
+    const chosenPassword = document.getElementById("sellerPassword").value;
+    if (!chosenPassword || chosenPassword.length < 6) {
+      showToast("Please go back and set a password (min 6 characters).", "error");
+      goToStep(1);
+      return;
+    }
+    const signupRes = await signupUser({
+      fullName: name,
+      email: email,
+      password: chosenPassword,
+      role: "seller",
+      collegeName: college,
+      degree: degree,
+      city: city,
+      upiId: upiId,
+      skills: skills
+    });
+    if (!signupRes.success) {
+      showToast(signupRes.error || "Signup failed. Please try again.", "error");
+      return;
+    }
+    user = signupRes.user;
+
+  } else {
+    // Upgrade existing account
+    user.role = "seller";
+    user.fullName = name;
+    user.collegeName = college;
+    user.city = city;
+    user.degree = degree;
+    user.upiId = upiId;
+    user.sellerBio = bio;
+    user.skills = skills;
+    user.portfolioUrl = portfolioUrl;
+    user.avatar = selectedAvatar;
+    saveUser(user);
+    localStorage.setItem(AUTH_KEYS.activeRole, "seller");
+  }
+
+  // Create the new gig
+  const newGig = {
+    id: uid("gig"),
+    title: gigTitle,
+    category: gigCategory,
+    rate: gigRate,
+    rateUnit: gigRateUnit,
+    description: gigDesc,
+    creatorName: user.fullName,
+    creatorId: user.id,
+    collegeCampus: college,
+    city: city,
+    createdAt: Date.now(),
+    completedCount: 0
+  };
+
+  saveGig(newGig);
+  localStorage.setItem("gb_last_creator_name", user.fullName);
+
+  showToast("🎉 Congratulations! Your gig is live and your Creator Profile is set up.", "success");
+  setTimeout(() => {
+    window.location.href = "dashboard.html";
+  }, 1200);
+}
+</script>
+</body>
+</html>

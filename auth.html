@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GigBoard — Sign In &amp; Campus Access</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><circle cx=%2250%22 cy=%2250%22 r=%2245%22 fill=%22%23FF5A36%22/><text y=%2265%22 x=%2250%22 text-anchor=%22middle%22 font-size=%2250%22 fill=%22white%22>⚡</text></svg>">
+<link rel="stylesheet" href="css/style.css">
+<style>
+.pw-strength {
+  height: 4px;
+  border-radius: 4px;
+  background: var(--line, #E2D9C8);
+  margin-top: 6px;
+  overflow: hidden;
+}
+.pw-strength-bar {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s, background 0.3s;
+}
+
+</style>
+</head>
+<body class="auth-page">
+
+<main class="auth-wrapper" style="min-height:100vh; display:flex; align-items:center; justify-content:center; padding:40px 16px;">
+  <div class="wrap auth-container" style="width:100%; max-width:480px; margin:0 auto;">
+
+    <!-- Main Auth Card -->
+    <div class="card auth-card">
+
+      <!-- ── TABS: Sign In vs Create Account ──────────────── -->
+      <div class="auth-tabs" id="authTabs">
+        <button class="tab-btn active" id="tabLogin" onclick="switchTab('login')">Sign In</button>
+        <button class="tab-btn" id="tabSignup" onclick="switchTab('signup')">Create Account</button>
+      </div>
+
+      <!-- ════════════════════════════════════════════════════
+           1. SIGN IN FORM (Instant Password Login)
+      ════════════════════════════════════════════════════════ -->
+      <div id="loginSection" class="auth-section">
+        <div class="auth-title">
+          <h2>Welcome to GigBoard</h2>
+          <p>Sign in to access student gigs, campus orders, and your creator dashboard.</p>
+        </div>
+
+        <form id="loginForm" onsubmit="handleLogin(event)">
+          <div class="field">
+            <label for="loginEmail">Email address <span class="req">*</span></label>
+            <input type="email" id="loginEmail" required placeholder="you@gmail.com or college email" autocomplete="email">
+          </div>
+
+          <div class="field">
+            <div class="label-row">
+              <label for="loginPassword">Password <span class="req">*</span></label>
+            </div>
+            <div class="pw-wrapper">
+              <input type="password" id="loginPassword" required placeholder="Enter your password" autocomplete="current-password">
+              <button type="button" class="pw-toggle" onclick="togglePw('loginPassword')">👁️</button>
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-full btn-lg" id="loginBtn">
+            Sign In to GigBoard
+          </button>
+        </form>
+
+        <p class="auth-switch-text" style="margin-top:20px;">
+          New to GigBoard? <a href="javascript:void(0)" onclick="switchTab('signup')">Create a free student account</a>
+        </p>
+      </div>
+
+      <!-- ════════════════════════════════════════════════════
+           2. SIGN UP FORM (Instant Direct Account Creation)
+      ════════════════════════════════════════════════════════ -->
+      <div id="signupSection" class="auth-section" style="display:none;">
+        <div class="auth-title">
+          <h2>Join GigBoard India</h2>
+          <p>Connect with student creators across Indian college campuses.</p>
+        </div>
+
+        <form id="signupForm" onsubmit="handleSignup(event)">
+          <!-- Role Selection -->
+          <div class="role-selector">
+            <label class="role-option active" id="roleBuyerOption" onclick="selectRole('buyer')">
+              <input type="radio" name="accountRole" value="buyer" checked>
+              <div class="role-icon">💼</div>
+              <div class="role-text">
+                <strong>I'm a Buyer / Client</strong>
+                <span>Looking to hire talented student creators</span>
+              </div>
+            </label>
+
+            <label class="role-option" id="roleSellerOption" onclick="selectRole('seller')">
+              <input type="radio" name="accountRole" value="seller">
+              <div class="role-icon">🚀</div>
+              <div class="role-text">
+                <strong>I'm a Student Creator</strong>
+                <span>Offer skills, build portfolio &amp; earn pocket money</span>
+              </div>
+            </label>
+          </div>
+
+          <div class="field">
+            <label for="signupName">Full Name <span class="req">*</span></label>
+            <input type="text" id="signupName" required placeholder="e.g. Aryan Sharma">
+          </div>
+
+          <div class="field">
+            <label for="signupEmail">Email address <span class="req">*</span></label>
+            <input type="email" id="signupEmail" required placeholder="Personal or college email (e.g. aryan@gmail.com)">
+            <span class="hint">Gmail, Outlook or College emails are all supported.</span>
+          </div>
+
+          <div class="grid-2">
+            <div class="field">
+              <label for="signupCollege">College / University <span class="req">*</span></label>
+              <input type="text" id="signupCollege" list="collegeSuggestions" required placeholder="e.g. IIT Delhi, DU, BITS">
+              <datalist id="collegeSuggestions">
+                <option value="IIT Delhi">
+                <option value="IIT Bombay">
+                <option value="IIT Madras">
+                <option value="BITS Pilani">
+                <option value="Delhi University (DU)">
+                <option value="Mumbai University">
+                <option value="VIT Vellore">
+                <option value="SRM University">
+                <option value="NIT Trichy">
+                <option value="Anna University">
+                <option value="Manipal Academy (MAHE)">
+                <option value="Amity University">
+              </datalist>
+            </div>
+            <div class="field">
+              <label for="signupDegree">Degree &amp; Year</label>
+              <input type="text" id="signupDegree" placeholder="e.g. B.Tech CS (2nd Year)">
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="signupPassword">Create Password <span class="req">*</span></label>
+            <div class="pw-wrapper">
+              <input type="password" id="signupPassword" required minlength="6"
+                     placeholder="At least 6 characters"
+                     oninput="checkPwStrength(this.value)">
+              <button type="button" class="pw-toggle" onclick="togglePw('signupPassword')">👁️</button>
+            </div>
+            <div class="pw-strength">
+              <div class="pw-strength-bar" id="pwStrengthBar" style="width:0%;"></div>
+            </div>
+            <span class="hint" id="pwStrengthLabel"></span>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-full btn-lg" id="signupSubmitBtn">
+            🚀 Create Free Account &rarr;
+          </button>
+        </form>
+
+        <p class="auth-switch-text">
+          Already have an account? <a href="javascript:void(0)" onclick="switchTab('login')">Sign In</a>
+        </p>
+      </div>
+
+    </div><!-- /auth-card -->
+  </div>
+</main>
+
+<div id="toastContainer" class="toast-container"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase-client.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/store.js"></script>
+<script src="js/ui.js"></script>
+<script>
+let selectedRole = "buyer";
+
+/* ═══════════════════════════════════════════════════════════
+   1. LOGIN HANDLER (Direct, Instant Password Login)
+═══════════════════════════════════════════════════════════ */
+async function handleLogin(e) {
+  e.preventDefault();
+  const btn = document.getElementById("loginBtn");
+  btn.disabled = true;
+  btn.textContent = "Signing in…";
+
+  const email    = document.getElementById("loginEmail").value.trim();
+  const password = document.getElementById("loginPassword").value;
+
+  const res = await loginUser(email, password);
+  if (res.success) {
+    showToast(`Welcome back, ${res.user.fullName}! 🎉`, "success");
+    const returnTo = new URLSearchParams(location.search).get("redirect");
+    setTimeout(() => {
+      window.location.href = returnTo || (getActiveRole() === "seller" ? "dashboard.html" : "index.html");
+    }, 500);
+  } else {
+    showToast(res.error || "Login failed. Please check your email and password.", "error");
+    btn.disabled = false;
+    btn.textContent = "🔒 Sign In to GigBoard";
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   2. SIGNUP HANDLER (Instant Account Creation)
+═══════════════════════════════════════════════════════════ */
+async function handleSignup(e) {
+  e.preventDefault();
+  const btn = document.getElementById("signupSubmitBtn");
+
+  const fullName    = document.getElementById("signupName").value.trim();
+  const email       = document.getElementById("signupEmail").value.trim();
+  const password    = document.getElementById("signupPassword").value;
+  const collegeName = document.getElementById("signupCollege").value.trim();
+  const degree      = document.getElementById("signupDegree").value.trim();
+
+  if (!fullName || !email || !password || !collegeName) {
+    showToast("Please fill in all required fields.", "error");
+    return;
+  }
+  if (password.length < 6) {
+    showToast("Password must be at least 6 characters.", "error");
+    return;
+  }
+
+  const existing = getAllUsers().find(u => u.email.toLowerCase() === email.toLowerCase());
+  if (existing) {
+    showToast("An account with this email already exists. Please sign in.", "error");
+    switchTab("login");
+    document.getElementById("loginEmail").value = email;
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = "Creating account…";
+
+  const res = await signupUser({
+    fullName,
+    email,
+    password,
+    role: selectedRole,
+    collegeName,
+    degree
+  });
+
+  if (res.success) {
+    showToast(`✓ Account created! Welcome, ${res.user.fullName}! 🎉`, "success");
+    setTimeout(() => {
+      const returnTo = new URLSearchParams(location.search).get("redirect");
+      if (selectedRole === "seller") {
+        window.location.href = "become-seller.html";
+      } else {
+        window.location.href = returnTo || "index.html";
+      }
+    }, 600);
+  } else {
+    showToast(res.error || "Signup failed. Please try again.", "error");
+    btn.disabled = false;
+    btn.textContent = "🚀 Create Free Account →";
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   TAB & ROLE SWITCHERS
+═══════════════════════════════════════════════════════════ */
+function switchTab(tab) {
+  const isLogin  = tab === "login";
+  const isSignup = tab === "signup";
+
+  document.getElementById("tabLogin").classList.toggle("active", isLogin);
+  document.getElementById("tabSignup").classList.toggle("active", isSignup);
+
+  document.getElementById("loginSection").style.display  = isLogin  ? "block" : "none";
+  document.getElementById("signupSection").style.display = isSignup ? "block" : "none";
+}
+
+function selectRole(role) {
+  selectedRole = role;
+  document.getElementById("roleBuyerOption").classList.toggle("active", role === "buyer");
+  document.getElementById("roleSellerOption").classList.toggle("active", role === "seller");
+  document.querySelector(`input[value="${role}"]`).checked = true;
+  document.getElementById("signupSubmitBtn").textContent =
+    role === "seller" ? "🚀 Create Creator Account & Continue →" : "🚀 Create Buyer Account & Continue →";
+}
+
+function togglePw(id) {
+  const el = document.getElementById(id);
+  el.type = el.type === "password" ? "text" : "password";
+}
+
+function checkPwStrength(val) {
+  const bar   = document.getElementById("pwStrengthBar");
+  const label = document.getElementById("pwStrengthLabel");
+  let score = 0;
+  if (val.length >= 6)  score++;
+  if (val.length >= 10) score++;
+  if (/[A-Z]/.test(val)) score++;
+  if (/\d/.test(val))    score++;
+  if (/[^A-Za-z0-9]/.test(val)) score++;
+
+  const levels = [
+    { pct:"10%", color:"#EF5350", text:"Too short" },
+    { pct:"30%", color:"#FF7043", text:"Weak" },
+    { pct:"55%", color:"#FFA726", text:"Fair" },
+    { pct:"78%", color:"#66BB6A", text:"Good" },
+    { pct:"100%",color:"#43A047", text:"Strong password 💪" }
+  ];
+  const lvl = levels[Math.max(0, score - 1)] || levels[0];
+  bar.style.width = val ? lvl.pct : "0%";
+  bar.style.background = val ? lvl.color : "";
+  label.textContent = val ? lvl.text : "";
+}
+
+/* ═══════════════════════════════════════════════════════════
+   1-CLICK EVALUATOR / QUICK DEMO LOGIN
+═══════════════════════════════════════════════════════════ */
+function quickLogin(role) {
+  const user = demoLogin(role);
+  showToast(`⚡ Instant Demo: Logged in as ${user.fullName} (${user.collegeName})`, "success");
+  const returnTo = new URLSearchParams(location.search).get("redirect");
+  setTimeout(() => {
+    window.location.href = returnTo || (getActiveRole() === "seller" ? "dashboard.html" : "index.html");
+  }, 400);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   PAGE INIT
+═══════════════════════════════════════════════════════════ */
+document.addEventListener("DOMContentLoaded", () => {
+  // If already logged in, redirect away
+  const current = getCurrentUser();
+  const returnTo = new URLSearchParams(location.search).get("redirect");
+  if (current) {
+    window.location.href = returnTo || (getActiveRole() === "seller" ? "dashboard.html" : "index.html");
+    return;
+  }
+
+  // URL query params for initial tab / role
+  const mode = new URLSearchParams(location.search).get("mode");
+  if (mode === "signup") switchTab("signup");
+  const roleParam = new URLSearchParams(location.search).get("role");
+  if (roleParam === "seller") selectRole("seller");
+});
+</script>
+</body>
+</html>
